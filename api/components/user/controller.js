@@ -1,5 +1,7 @@
 'use strict';
 
+const auth = require('../auth');
+
 // const store = require('../../../store/dummy');
 
 const TABLE = 'user';
@@ -18,9 +20,11 @@ module.exports = function (injectedStore) {
         return store.get(TABLE, id);
     }
 
-    function upsert(body) {
+    async function upsert(body) {
         const user = {
             name: body.name,
+            username: body.username,
+            password: body.password
         }
 
         if (body.id) {
@@ -28,12 +32,38 @@ module.exports = function (injectedStore) {
         } else {
             user.id = nanoid();
         }
+
+        if (body.password || body.username) {
+            await auth.upsert({
+                id: user.id,
+                username: user.username,
+                password: user.password
+            })
+        }
+
         return store.upsert(TABLE, user);
+    }
+
+    function follow(from, to) {
+        store.upsert(TABLE + '_follow', {
+            user_From: from,
+            user_to: to
+        })
+    }
+
+    function following(user) {
+        const join = {};
+        join[TABLE] = 'user_to'; // { user: 'user_to' }
+        const query = { user_from: user };
+
+        return await store.query(TABLE + '_follow', query, join);
     }
 
     return {
         list,
         get,
-        upsert
+        upsert,
+        follow,
+        following
     }
 }
